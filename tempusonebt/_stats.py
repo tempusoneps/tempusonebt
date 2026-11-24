@@ -150,8 +150,9 @@ def compute_stats(
     # and simple standard deviation
     s.loc['Sharpe Ratio'] = (s.loc['Return (Ann.) [%]'] - risk_free_rate * 100) / (s.loc['Volatility (Ann.) [%]'] or np.nan)  # noqa: E501
     # Our Sortino mismatches `empyrical.sortino_ratio()` because they use arithmetic mean return
+    mar = (1 + risk_free_rate)**(1 / annual_trading_days) - 1 if is_datetime_index else 0
     with np.errstate(divide='ignore'):
-        s.loc['Sortino Ratio'] = (annualized_return - risk_free_rate) / (np.sqrt(np.mean(day_returns.clip(-np.inf, 0)**2)) * np.sqrt(annual_trading_days))  # noqa: E501
+        s.loc['Sortino Ratio'] = (annualized_return - risk_free_rate) / (np.sqrt(np.mean((day_returns - mar).clip(-np.inf, 0)**2)) * np.sqrt(annual_trading_days))  # noqa: E501
     max_dd = -np.nan_to_num(dd.max())
     s.loc['Calmar Ratio'] = annualized_return / (-max_dd or np.nan)
     eq_active = equity[first_trading_bar:]
