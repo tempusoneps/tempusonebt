@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 name = "tempusonebt"
 description = "Backtest trading strategies in Python"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "AGPL-3.0-or-later"
 authors = [
     { name = "Zach Luster" },
@@ -18,64 +18,22 @@ authors = [
 keywords = [
     "algo",
     "algorithmic",
-    "ashi",
     "backtest",
     "backtesting",
-    "bitcoin",
     "bokeh",
-    "bonds",
-    "candle",
     "candlestick",
-    "cboe",
-    "chart",
-    "cme",
-    "commodities",
-    "crash",
     "crypto",
-    "currency",
-    "doji",
-    "drawdown",
-    "equity",
-    "etf",
-    "ethereum",
-    "exchange",
     "finance",
-    "financial",
-    "forecast",
     "forex",
-    "fund",
-    "futures",
-    "fx",
-    "fxpro",
-    "gold",
-    "heiken",
-    "historical",
     "indicator",
-    "invest",
-    "investing",
-    "investment",
-    "macd",
-    "market",
-    "mechanical",
-    "money",
-    "oanda",
     "ohlc",
     "ohlcv",
-    "order",
-    "price",
-    "profit",
     "quant",
     "quantitative",
-    "rsi",
-    "silver",
     "simulation",
     "stocks",
     "strategy",
-    "ticker",
-    "trader",
     "trading",
-    "tradingview",
-    "usd",
 ]
 classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
@@ -83,8 +41,12 @@ classifiers = [
     "Framework :: Jupyter",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Office/Business :: Financial :: Investment",
     "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed",
 ]
 dependencies = [
     "numpy>=1.17.0",
@@ -104,70 +66,90 @@ doc = [
 test = [
     "matplotlib",
     "scikit-learn",
-    "sambo; python_version >= '3.10'",
+    "sambo",
     "tqdm",
     "ipywidgets",
 ]
+
+[dependency-groups]
 dev = [
-    "flake8",
+    "pytest>=8.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
     "coverage",
-    "mypy",
 ]
 
 [project.urls]
-Documentation = "https://kernc.github.io/backtesting.py/doc/backtesting/"
-Source = "https://github.com/kernc/backtesting.py/"
-Tracker = "https://github.com/kernc/backtesting.py/issues"
+Homepage = "https://github.com/tempusoneps/tempusonebt"
+Repository = "https://github.com/tempusoneps/tempusonebt"
+Issues = "https://github.com/tempusoneps/tempusonebt/issues"
 
 [tool.setuptools.packages.find]
+where = ["src"]
 include = ["tempusonebt*"]
 
 [tool.setuptools.package-data]
 tempusonebt = [
     "autoscale_cb.js",
+    "py.typed",
+]
+"tempusonebt.datasets" = [
+    "*.csv",
 ]
 "tempusonebt.test" = [
     "*.csv",
 ]
 
 [tool.setuptools_scm]
-write_to = "tempusonebt/_version.py"
+write_to = "src/tempusonebt/_version.py"
 
 [tool.ruff]
 exclude = [
-    '.git',
-    '.eggs',
-    '__pycache__',
-    'doc/examples',
-]
-ignore = [
-    'UP006',
-    'UP007',
-    'UP009',
-    'N802',
-    'N806',
-    'C901',
-    'B008',
-    'B011',
-    'RUF002',
+    ".git",
+    ".eggs",
+    "__pycache__",
+    "examples",
 ]
 line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
 select = [
-    'I',
-    'E',
-    'F',
-    'W',
-    'UP',
-    'N',
-    'C',
-    'B',
-    'T',
-    'RUF',
-    'YTT',
+    "I",
+    "E",
+    "F",
+    "W",
+    "UP",
+    "N",
+    "C",
+    "B",
+    "T",
+    "RUF",
+    "YTT",
+]
+ignore = [
+    "UP006",
+    "UP007",
+    "UP009",
+    "N802",
+    "N806",
+    "C901",
+    "B008",
+    "B011",
+    "RUF002",
 ]
 
-[tool.ruff.pep8-naming]
+[tool.ruff.lint.pep8-naming]
 ignore-names = [
-    'l',
-    'h',
+    "l",
+    "h",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
