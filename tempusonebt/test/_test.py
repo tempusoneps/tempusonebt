@@ -1243,3 +1243,19 @@ class TestRegressions(TestCase):
         self.assertAlmostEqual(
             stats['Equity Final [$]'] - 5000,
             stats['_trades']['PnL'].sum())
+
+    def test_kelly_criterion_edge_cases(self):
+        class S(_S):
+            def next(self):
+                if len(self.data) == 2:
+                    self.buy(size=1)
+                elif len(self.data) == 4:
+                    self.position.close()
+
+        arr_up = np.r_[100, 100, 100, 110, 120, 120]
+        arr_dn = np.r_[100, 100, 100, 90, 80, 80]
+        with self.assertWarnsRegex(UserWarning, 'index is not datetime'):
+            stats_win = Backtest(pd.DataFrame({'Open': arr_up, 'High': arr_up, 'Low': arr_up, 'Close': arr_up}), S).run()
+            stats_loss = Backtest(pd.DataFrame({'Open': arr_dn, 'High': arr_dn, 'Low': arr_dn, 'Close': arr_dn}), S).run()
+        self.assertEqual(stats_win['Kelly Criterion'], 1.0)
+        self.assertEqual(stats_loss['Kelly Criterion'], 0.0)

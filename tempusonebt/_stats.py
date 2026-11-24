@@ -191,7 +191,13 @@ def compute_stats(
     s.loc['Profit Factor'] = pl[pl > 0].sum() / (abs(pl[pl < 0].sum()) or np.nan)  # noqa: E501
     s.loc['Expectancy [%]'] = returns.mean() * 100
     s.loc['SQN'] = np.sqrt(n_trades) * pl.mean() / (pl.std() or np.nan)
-    s.loc['Kelly Criterion'] = win_rate - (1 - win_rate) / (pl[pl > 0].mean() / -pl[pl < 0].mean())
+    avg_win = pl[pl > 0].mean()
+    avg_loss = -pl[pl < 0].mean()
+    payoff_ratio = avg_win / avg_loss if avg_loss else np.nan
+    s.loc['Kelly Criterion'] = (
+        1.0 if n_trades and win_rate == 1 else
+        0.0 if n_trades and win_rate == 0 else
+        win_rate - (1 - win_rate) / payoff_ratio)
 
     s.loc['_strategy'] = strategy_instance
     s.loc['_equity_curve'] = equity_df
