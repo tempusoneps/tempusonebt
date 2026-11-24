@@ -78,7 +78,7 @@ _trades                       Size  EntryB...
 dtype: object
 ```
 
-Find more usage examples in [doc/examples](doc/examples).
+Find more usage examples in [examples](examples).
 
 
 Features
@@ -91,12 +91,6 @@ Features
 * Supports _any_ financial instrument with candlestick data
 * Detailed results
 * Interactive visualizations
-
-
-Alternatives
-------------
-See [alternatives.md](doc/alternatives.md) for a list of alternative Python
-backtesting frameworks and related packages.
 
 ---
 
