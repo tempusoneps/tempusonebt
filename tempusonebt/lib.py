@@ -195,11 +195,10 @@ def compute_stats(
     if trades is None:
         trades = stats._trades
     else:
-        # XXX: Is this buggy?
         equity = equity.copy()
         equity[:] = stats._equity_curve.Equity.iloc[0]
         for t in trades.itertuples(index=False):
-            equity.iloc[t.EntryBar:] += t.PnL
+            equity.iloc[t.ExitBar:] += t.PnL
     return _compute_stats(trades=trades, equity=equity.values, ohlc_data=data,
                           risk_free_rate=risk_free_rate, strategy_instance=stats._strategy)
 

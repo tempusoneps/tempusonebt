@@ -928,6 +928,9 @@ class TestLib(TestCase):
         self.assertEqual(long_stats['# Trades'], len(only_long_trades))
         self.assertEqual(stats._strategy, long_stats._strategy)
         assert_frame_equal(long_stats._trades, only_long_trades)
+        first_exit = only_long_trades['ExitBar'].min()
+        self.assertTrue((long_stats._equity_curve.Equity.iloc[:first_exit] ==
+                         stats._equity_curve.Equity.iloc[0]).all())
 
     def test_SignalStrategy(self):
         class S(SignalStrategy):
