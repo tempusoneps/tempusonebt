@@ -141,6 +141,7 @@ def compute_stats(
     s.loc['Volatility (Ann.) [%]'] = np.sqrt((day_returns.var(ddof=int(bool(day_returns.shape))) + (1 + gmean_day_return)**2)**annual_trading_days - (1 + gmean_day_return)**(2 * annual_trading_days)) * 100  # noqa: E501
     # s.loc['Return (Ann.) [%]'] = gmean_day_return * annual_trading_days * 100
     # s.loc['Risk (Ann.) [%]'] = day_returns.std(ddof=1) * np.sqrt(annual_trading_days) * 100
+    time_in_years = np.nan
     if is_datetime_index:
         time_in_years = s.loc['Duration'].total_seconds() / (365.25 * 86400)
         s.loc['CAGR [%]'] = ((s.loc['Equity Final [$]'] / equity[0])**(1 / time_in_years) - 1) * 100 if time_in_years else np.nan  # noqa: E501
@@ -153,15 +154,21 @@ def compute_stats(
         s.loc['Sortino Ratio'] = (annualized_return - risk_free_rate) / (np.sqrt(np.mean(day_returns.clip(-np.inf, 0)**2)) * np.sqrt(annual_trading_days))  # noqa: E501
     max_dd = -np.nan_to_num(dd.max())
     s.loc['Calmar Ratio'] = annualized_return / (-max_dd or np.nan)
-    equity_log_returns = np.log(equity[1:] / equity[:-1])
-    market_log_returns = np.log(c[1:] / c[:-1])
+    eq_active = equity[first_trading_bar:]
+    c_active = c[first_trading_bar:]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        equity_log_returns = np.log(eq_active[1:] / eq_active[:-1])
+        market_log_returns = np.log(c_active[1:] / c_active[:-1])
+    valid = np.isfinite(equity_log_returns) & np.isfinite(market_log_returns)
     beta = np.nan
-    if len(equity_log_returns) > 1 and len(market_log_returns) > 1:
-        # len == 0 on dummy call `stats_keys = compute_stats(...)` pre optimization
-        cov_matrix = np.cov(equity_log_returns, market_log_returns)
-        beta = cov_matrix[0, 1] / cov_matrix[1, 1]
+    if valid.sum() > 1:
+        cov_matrix = np.cov(equity_log_returns[valid], market_log_returns[valid])
+        beta = cov_matrix[0, 1] / cov_matrix[1, 1] if cov_matrix[1, 1] else np.nan
+    rf_total = (((1 + risk_free_rate)**time_in_years - 1) * 100
+                if is_datetime_index and time_in_years else
+                risk_free_rate * 100)
     # Jensen CAPM Alpha: can be strongly positive when beta is negative and B&H Return is large
-    s.loc['Alpha [%]'] = s.loc['Return [%]'] - risk_free_rate * 100 - beta * (s.loc['Buy & Hold Return [%]'] - risk_free_rate * 100)  # noqa: E501
+    s.loc['Alpha [%]'] = s.loc['Return [%]'] - rf_total - beta * (s.loc['Buy & Hold Return [%]'] - rf_total)  # noqa: E501
     s.loc['Beta'] = beta
     s.loc['Max. Drawdown [%]'] = max_dd * 100
     s.loc['Avg. Drawdown [%]'] = -dd_peaks.mean() * 100
