@@ -353,9 +353,9 @@ class Position:
 
     @property
     def pl_pct(self) -> float:
-        """Profit (positive) or loss (negative) of the current position in percent."""
+        """Profit (positive) or loss (negative) of the current position as a fraction."""
         total_invested = sum(trade.entry_price * abs(trade.size) for trade in self.__broker.trades)
-        return (self.pl / total_invested) * 100 if total_invested else 0
+        return self.pl / total_invested if total_invested else 0
 
     @property
     def is_long(self) -> bool:

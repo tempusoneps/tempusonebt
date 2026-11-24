@@ -490,6 +490,7 @@ class TestStrategy(TestCase):
             assert self.position.size > 0
             assert self.position.pl
             assert self.position.pl_pct
+            assert np.isclose(self.position.pl_pct, self.trades[0].pl_pct)
 
             yield self.position.close()
 
