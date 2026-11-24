@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import warnings
+from collections.abc import Sequence
 from contextlib import contextmanager
 from functools import partial
 from itertools import chain
@@ -10,7 +11,7 @@ from multiprocessing import resource_tracker as _mprt
 from multiprocessing import shared_memory as _mpshm
 from numbers import Number
 from threading import Lock
-from typing import Dict, List, Optional, Sequence, Union, cast
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -59,7 +60,7 @@ def _as_str(value) -> str:
     return name
 
 
-def _as_list(value) -> List:
+def _as_list(value) -> list:
     if isinstance(value, Sequence) and not isinstance(value, str):
         return list(value)
     return [value]
@@ -72,7 +73,7 @@ def _batch(seq):
         yield seq[i:i + n]
 
 
-def _data_period(index) -> Union[pd.Timedelta, Number]:
+def _data_period(index) -> pd.Timedelta | Number:
     """Return data index period as pd.Timedelta"""
     values = pd.Series(index[-100:])
     return values.diff().dropna().median()
@@ -113,7 +114,7 @@ class _Array(np.ndarray):
     # when (un-)pickling.
     def __reduce__(self):
         value = super().__reduce__()
-        return value[:2] + (value[2] + (self.__dict__,),)
+        return (*value[:2], value[2] + (self.__dict__,))
 
     def __setstate__(self, state):
         self.__dict__.update(state[-1])
@@ -132,7 +133,7 @@ class _Array(np.ndarray):
             return super().__float__()
 
     def to_series(self):
-        warnings.warn("`.to_series()` is deprecated. For pd.Series conversion, use accessor `.s`")
+        warnings.warn("`.to_series()` is deprecated. For pd.Series conversion, use accessor `.s`", stacklevel=2)
         return self.s
 
     @property
@@ -163,9 +164,9 @@ class _Data:
     def __init__(self, df: pd.DataFrame):
         self.__df = df
         self.__len = len(df)  # Current length
-        self.__pip: Optional[float] = None
-        self.__cache: Dict[str, _Array] = {}
-        self.__arrays: Dict[str, _Array] = {}
+        self.__pip: float | None = None
+        self.__cache: dict[str, _Array] = {}
+        self.__arrays: dict[str, _Array] = {}
         self._update()
 
     def __getitem__(self, item):
@@ -283,7 +284,7 @@ class SharedMemoryManager:
         shm = SharedMemory(name=name, create=create, size=size, track=track)
         shm._create = create
         # Essential to keep refs on Windows
-        # https://stackoverflow.com/questions/74193377/filenotfounderror-when-passing-a-shared-memory-to-a-new-process#comment130999060_74194875  # noqa: E501
+        # https://stackoverflow.com/questions/74193377/filenotfounderror-when-passing-a-shared-memory-to-a-new-process#comment130999060_74194875
         self._shms.append(shm)
         return shm
 

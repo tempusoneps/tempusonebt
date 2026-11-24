@@ -128,15 +128,16 @@ select = [
     "YTT",
 ]
 ignore = [
-    "UP006",
-    "UP007",
-    "UP009",
     "N802",
     "N806",
+    "N812",
     "C901",
+    "C408",
     "B008",
     "B011",
+    "B905",
     "RUF002",
+    "E501",
 ]
 
 [tool.ruff.lint.pep8-naming]
@@ -150,6 +151,5 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.mypy]
-python_version = "3.10"
 ignore_missing_imports = true
-warn_unused_ignores = true
+warn_unused_ignores = false

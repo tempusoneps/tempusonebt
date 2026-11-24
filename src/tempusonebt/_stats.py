@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Union, cast
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -8,7 +8,8 @@ import pandas as pd
 from ._util import _data_period, _indicator_warmup_nbars
 
 if TYPE_CHECKING:
-    from .backtesting import Strategy, Trade
+    from .models import Trade
+    from .strategy import Strategy
 
 
 def compute_drawdown_duration_peaks(dd: pd.Series):
@@ -35,13 +36,14 @@ def geometric_mean(returns: pd.Series) -> float:
 
 
 def compute_stats(
-        trades: Union[List['Trade'], pd.DataFrame],
+        trades: list[Trade] | pd.DataFrame,
         equity: np.ndarray,
         ohlc_data: pd.DataFrame,
         strategy_instance: Strategy | None,
         risk_free_rate: float = 0,
 ) -> pd.Series:
-    assert -1 < risk_free_rate < 1
+    if not (-1 < risk_free_rate < 1):
+        raise ValueError(f'risk_free_rate must be between -1 and 1, got {risk_free_rate}')
 
     index = ohlc_data.index
     dd = 1 - equity / np.maximum.accumulate(equity)
@@ -142,21 +144,21 @@ def compute_stats(
     # our risk doesn't; they use the simpler approach below.
     annualized_return = (1 + gmean_day_return)**annual_trading_days - 1
     s.loc['Return (Ann.) [%]'] = annualized_return * 100
-    s.loc['Volatility (Ann.) [%]'] = np.sqrt((day_returns.var(ddof=int(bool(day_returns.shape))) + (1 + gmean_day_return)**2)**annual_trading_days - (1 + gmean_day_return)**(2 * annual_trading_days)) * 100  # noqa: E501
+    s.loc['Volatility (Ann.) [%]'] = np.sqrt((day_returns.var(ddof=int(bool(day_returns.shape))) + (1 + gmean_day_return)**2)**annual_trading_days - (1 + gmean_day_return)**(2 * annual_trading_days)) * 100
     # s.loc['Return (Ann.) [%]'] = gmean_day_return * annual_trading_days * 100
     # s.loc['Risk (Ann.) [%]'] = day_returns.std(ddof=1) * np.sqrt(annual_trading_days) * 100
     time_in_years = np.nan
     if is_datetime_index:
         time_in_years = s.loc['Duration'].total_seconds() / (365.25 * 86400)
-        s.loc['CAGR [%]'] = ((s.loc['Equity Final [$]'] / equity[0])**(1 / time_in_years) - 1) * 100 if time_in_years else np.nan  # noqa: E501
+        s.loc['CAGR [%]'] = ((s.loc['Equity Final [$]'] / equity[0])**(1 / time_in_years) - 1) * 100 if time_in_years else np.nan
 
     # Our Sharpe mismatches `empyrical.sharpe_ratio()` because they use arithmetic mean return
     # and simple standard deviation
-    s.loc['Sharpe Ratio'] = (s.loc['Return (Ann.) [%]'] - risk_free_rate * 100) / (s.loc['Volatility (Ann.) [%]'] or np.nan)  # noqa: E501
+    s.loc['Sharpe Ratio'] = (s.loc['Return (Ann.) [%]'] - risk_free_rate * 100) / (s.loc['Volatility (Ann.) [%]'] or np.nan)
     # Our Sortino mismatches `empyrical.sortino_ratio()` because they use arithmetic mean return
     mar = (1 + risk_free_rate)**(1 / annual_trading_days) - 1 if is_datetime_index else 0
     with np.errstate(divide='ignore'):
-        s.loc['Sortino Ratio'] = (annualized_return - risk_free_rate) / (np.sqrt(np.mean((day_returns - mar).clip(-np.inf, 0)**2)) * np.sqrt(annual_trading_days))  # noqa: E501
+        s.loc['Sortino Ratio'] = (annualized_return - risk_free_rate) / (np.sqrt(np.mean((day_returns - mar).clip(-np.inf, 0)**2)) * np.sqrt(annual_trading_days))
     max_dd = -np.nan_to_num(dd.max())
     s.loc['Calmar Ratio'] = annualized_return / (-max_dd or np.nan)
     eq_active = equity[first_trading_bar:]
@@ -173,7 +175,7 @@ def compute_stats(
                 if is_datetime_index and time_in_years else
                 risk_free_rate * 100)
     # Jensen CAPM Alpha: can be strongly positive when beta is negative and B&H Return is large
-    s.loc['Alpha [%]'] = s.loc['Return [%]'] - rf_total - beta * (s.loc['Buy & Hold Return [%]'] - rf_total)  # noqa: E501
+    s.loc['Alpha [%]'] = s.loc['Return [%]'] - rf_total - beta * (s.loc['Buy & Hold Return [%]'] - rf_total)
     s.loc['Beta'] = beta
     s.loc['Max. Drawdown [%]'] = max_dd * 100
     s.loc['Avg. Drawdown [%]'] = -dd_peaks.mean() * 100
@@ -188,7 +190,7 @@ def compute_stats(
     s.loc['Avg. Trade [%]'] = mean_return * 100
     s.loc['Max. Trade Duration'] = _round_timedelta(durations.max())
     s.loc['Avg. Trade Duration'] = _round_timedelta(durations.mean())
-    s.loc['Profit Factor'] = pl[pl > 0].sum() / (abs(pl[pl < 0].sum()) or np.nan)  # noqa: E501
+    s.loc['Profit Factor'] = pl[pl > 0].sum() / (abs(pl[pl < 0].sum()) or np.nan)
     s.loc['Expectancy [%]'] = returns.mean() * 100
     s.loc['SQN'] = np.sqrt(n_trades) * pl.mean() / (pl.std() or np.nan)
     avg_win = pl[pl > 0].mean()
@@ -219,7 +221,8 @@ class _Stats(pd.Series):
 
 
 def dummy_stats():
-    from .backtesting import Trade, _Broker
+    from .broker import _Broker
+    from .models import Trade
     index = pd.DatetimeIndex(['2025'])
     data = pd.DataFrame({col: [np.nan] for col in ('Close',)}, index=index)
     trade = Trade(_Broker(data=data, cash=10000, spread=.01, commission=.01, margin=.1,

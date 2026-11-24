@@ -116,7 +116,7 @@ class Order:
             ('tag', self._tag),
         )
         formatted = ', '.join(
-            f'{param}={try_(lambda: round(value, 5), value)!r}'
+            f'{param}={try_(lambda v=value: round(v, 5), value)!r}'
             for param, value in fields
             if value is not None
         )
@@ -230,7 +230,7 @@ class Trade:
         """Place new `Order` to close `portion` of the trade at next market price."""
         if not 0 < portion <= 1:
             raise ValueError('portion must be a fraction between 0 and 1')
-        size = copysign(max(1, int(round(abs(self._size) * portion))), -self._size)
+        size = copysign(max(1, round(abs(self._size) * portion)), -self._size)
         order = Order(self._broker, size, parent_trade=self, tag=self._tag)
         self._broker.orders.insert(0, order)
 

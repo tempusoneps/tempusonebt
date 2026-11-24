@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from numpy.random import default_rng
 
-from ._plotting import plot  # noqa: I001
+from ._plotting import plot
 from ._stats import compute_stats, dummy_stats
 from ._util import (
     SharedMemoryManager,
@@ -410,7 +410,7 @@ class Backtest:
                 else:
                     dimensions.append(arr.tolist())
 
-            @lru_cache()
+            @lru_cache
             def memoized_run(tup):
                 stats = self.run(**dict(tup))
                 return -maximize_fn(stats)

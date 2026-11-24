@@ -246,7 +246,7 @@ class _Broker:
                     warnings.warn(
                         f'time={self._i}: Broker canceled the relative-sized order due to insufficient margin '
                         f'(equity={self.equity:.2f}, margin_available={self.margin_available:.2f}).',
-                        category=UserWarning,
+                        stacklevel=2, category=UserWarning,
                     )
                     self.orders.remove(order)
                     continue
@@ -277,7 +277,7 @@ class _Broker:
                 warnings.warn(
                     f'time={self._i}: Broker canceled the order due to insufficient margin '
                     f'(equity={self.equity:.2f}, margin_available={self.margin_available:.2f}).',
-                    category=UserWarning,
+                    stacklevel=2, category=UserWarning,
                 )
                 self.orders.remove(order)
                 continue
@@ -316,7 +316,7 @@ class _Broker:
                             'price movement, the affected SL/TP order will instead be executed on '
                             'the next (matching) price/bar, making the result (of this trade) '
                             'somewhat dubious.',
-                            UserWarning,
+                            UserWarning, stacklevel=2,
                         )
 
             self.orders.remove(order)

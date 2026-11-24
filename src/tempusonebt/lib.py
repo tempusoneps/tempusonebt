@@ -1,24 +1,16 @@
 """
 Collection of common building blocks, helper auxiliary functions and
 composable strategy classes for reuse.
-
-Intended for simple missing-link procedures, not reinventing
-of better-suited, state-of-the-art, fast libraries,
-such as TA-Lib, Tulipy, PyAlgoTrade, NumPy, SciPy ...
-
-Please raise ideas for additions to this collection on the [issue tracker].
-
-[issue tracker]: https://github.com/kernc/backtesting.py
 """
 
 from __future__ import annotations
 
 import warnings
 from collections import OrderedDict
+from collections.abc import Callable, Generator, Sequence
 from inspect import currentframe
 from itertools import chain, compress, count
 from numbers import Number
-from typing import Callable, Generator, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -26,7 +18,8 @@ import pandas as pd
 from ._plotting import plot_heatmaps as _plot_heatmaps
 from ._stats import compute_stats as _compute_stats
 from ._util import SharedMemoryManager, _Array, _as_str, _batch, _tqdm, patch
-from .backtesting import Backtest, Strategy
+from .engine import Backtest
+from .strategy import Strategy
 
 __pdoc__ = {}
 
@@ -116,7 +109,7 @@ def crossover(series1: Sequence, series2: Sequence) -> bool:
 
 
 def plot_heatmaps(heatmap: pd.Series,
-                  agg: Union[str, Callable] = 'max',
+                  agg: str | Callable = 'max',
                   *,
                   ncols: int = 3,
                   plot_width: int = 1200,
@@ -124,42 +117,18 @@ def plot_heatmaps(heatmap: pd.Series,
                   open_browser: bool = True):
     """
     Plots a grid of heatmaps, one for every pair of parameters in `heatmap`.
-    See example in [the tutorial].
-
-    [the tutorial]: https://kernc.github.io/backtesting.py/doc/examples/Parameter%20Heatmap%20&%20Optimization.html#plot-heatmap  # noqa: E501
-
-    `heatmap` is a Series as returned by
-    `backtesting.backtesting.Backtest.optimize` when its parameter
-    `return_heatmap=True`.
-
-    When projecting the n-dimensional (n > 2) heatmap onto 2D, the values are
-    aggregated by 'max' function by default. This can be tweaked
-    with `agg` parameter, which accepts any argument pandas knows
-    how to aggregate by.
-
-    .. todo::
-        Lay heatmaps out lower-triangular instead of in a simple grid.
-        Like [`sambo.plot.plot_objective()`][plot_objective] does.
-
-    [plot_objective]: \
-        https://sambo-optimization.github.io/doc/sambo/plot.html#sambo.plot.plot_objective
+    `heatmap` is a Series as returned by `Backtest.optimize(..., return_heatmap=True)`.
     """
     return _plot_heatmaps(heatmap, agg, ncols, filename, plot_width, open_browser)
 
 
-def quantile(series: Sequence, quantile: Union[None, float] = None):
+def quantile(series: Sequence, quantile: float | None = None):
     """
     If `quantile` is `None`, return the quantile _rank_ of the last
     value of `series` wrt former series values.
 
     If `quantile` is a value between 0 and 1, return the _value_ of
-    `series` at this quantile. If used to working with percentiles, just
-    divide your percentile amount with 100 to obtain quantiles.
-
-        >>> quantile(self.data.Close[-20:], .1)
-        162.130
-        >>> quantile(self.data.Close)
-        0.13
+    `series` at this quantile.
     """
     if quantile is None:
         try:
@@ -167,7 +136,8 @@ def quantile(series: Sequence, quantile: Union[None, float] = None):
             return np.mean(series < last)
         except IndexError:
             return np.nan
-    assert 0 <= quantile <= 1, "quantile must be within [0, 1]"
+    if not (0 <= quantile <= 1):
+        raise ValueError('quantile must be within [0, 1]')
     return np.nanpercentile(series, quantile * 100)
 
 
@@ -175,7 +145,7 @@ def compute_stats(
         *,
         stats: pd.Series,
         data: pd.DataFrame,
-        trades: pd.DataFrame = None,
+        trades: pd.DataFrame | None = None,
         risk_free_rate: float = 0.) -> pd.Series:
     """
     (Re-)compute strategy performance metrics.
@@ -204,10 +174,10 @@ def compute_stats(
 
 
 def resample_apply(rule: str,
-                   func: Optional[Callable[..., Sequence]],
-                   series: Union[pd.Series, pd.DataFrame, _Array],
+                   func: Callable[..., Sequence] | None,
+                   series: pd.Series | pd.DataFrame | _Array,
                    *args,
-                   agg: Optional[Union[str, dict]] = None,
+                   agg: str | dict | None = None,
                    **kwargs):
     """
     Apply `func` (such as an indicator) to `series`, resampled to
@@ -283,12 +253,15 @@ http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
     if func is None:
         def func(x, *_, **__):
             return x
-    assert callable(func), 'resample_apply(func=) must be callable'
+    if not callable(func):
+        raise TypeError('resample_apply(func=) must be callable')
 
     if not isinstance(series, (pd.Series, pd.DataFrame)):
-        assert isinstance(series, _Array), \
-            'resample_apply(series=) must be `pd.Series`, `pd.DataFrame`, ' \
-            'or a `Strategy.data.*` array'
+        if not isinstance(series, _Array):
+            raise TypeError(
+                'resample_apply(series=) must be `pd.Series`, `pd.DataFrame`, '
+                'or a `Strategy.data.*` array'
+            )
         series = series.s
 
     if agg is None:
@@ -310,7 +283,7 @@ http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
             strategy_I = frame.f_locals['self'].I             # type: ignore
             break
     else:
-        def strategy_I(func, *args, **kwargs):  # noqa: F811
+        def strategy_I(func, *args, **kwargs):
             return func(*args, **kwargs)
 
     def wrap_func(resampled, *args, **kwargs):
@@ -335,7 +308,7 @@ http://pandas.pydata.org/pandas-docs/stable/timeseries.html#offset-aliases
 
 
 def random_ohlc_data(example_data: pd.DataFrame, *,
-                     frac=1., random_state: Optional[int] = None) -> Generator[pd.DataFrame, None, None]:
+                     frac=1., random_state: int | None = None) -> Generator[pd.DataFrame, None, None]:
     """
     OHLC data generator. The generated OHLC data has basic
     [descriptive statistics](https://en.wikipedia.org/wiki/Descriptive_statistics)
@@ -397,7 +370,7 @@ class SignalStrategy(Strategy):
     __exit_signal = (False,)
 
     def set_signal(self, entry_size: Sequence[float],
-                   exit_portion: Optional[Sequence[float]] = None,
+                   exit_portion: Sequence[float] | None = None,
                    *,
                    plot: bool = True):
         """
@@ -457,7 +430,7 @@ class TrailingStrategy(Strategy):
     """
     __n_atr = 6.
     __atr = None
-    __trailing_pct: Optional[float] = None
+    __trailing_pct: float | None = None
 
     def init(self):
         super().init()
@@ -486,7 +459,8 @@ class TrailingStrategy(Strategy):
         Set the future trailing stop-loss as some percent (`0 < pct < 1`)
         away from the current price (default 5%).
         """
-        assert 0 < pct < 1, 'Need pct= as rate, i.e. 5% == 0.05'
+        if not (0 < pct < 1):
+            raise ValueError('Need pct= as rate, i.e. 5% == 0.05')
         self.__trailing_pct = pct
 
     def next(self):
@@ -638,7 +612,7 @@ class MultiBacktest:
 
 __all__ = [getattr(v, '__name__', k)
            for k, v in globals().items()                        # export
-           if ((callable(v) and getattr(v, '__module__', None) == __name__ or  # callables from this module
+           if (((callable(v) and getattr(v, '__module__', None) == __name__) or  # callables from this module
                 k.isupper()) and                                # or CONSTANTS
                not getattr(v, '__name__', k).startswith('_'))]  # neither marked internal
 
