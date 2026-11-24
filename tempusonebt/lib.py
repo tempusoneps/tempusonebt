@@ -457,6 +457,7 @@ class TrailingStrategy(Strategy):
     """
     __n_atr = 6.
     __atr = None
+    __trailing_pct: Optional[float] = None
 
     def init(self):
         super().init()
@@ -468,8 +469,8 @@ class TrailingStrategy(Strategy):
         of 100 ensures a _stable_ ATR.
         """
         hi, lo, c_prev = self.data.High, self.data.Low, pd.Series(self.data.Close).shift(1)
-        tr = np.max([hi - lo, (c_prev - hi).abs(), (c_prev - lo).abs()], axis=0)
-        atr = pd.Series(tr).rolling(periods).mean().bfill().values
+        tr = np.nanmax([hi - lo, (c_prev - hi).abs(), (c_prev - lo).abs()], axis=0)
+        atr = pd.Series(tr).rolling(periods, min_periods=1).mean().values
         self.__atr = atr
 
     def set_trailing_sl(self, n_atr: float = 6):
@@ -478,31 +479,29 @@ class TrailingStrategy(Strategy):
         average true bar ranges away from the current price.
         """
         self.__n_atr = n_atr
+        self.__trailing_pct = None
 
     def set_trailing_pct(self, pct: float = .05):
         """
         Set the future trailing stop-loss as some percent (`0 < pct < 1`)
-        below the current price (default 5% below).
-
-        .. note:: Stop-loss set by `pct` is inexact
-            Stop-loss set by `set_trailing_pct` is converted to units of ATR
-            with `mean(Close * pct / atr)` and set with `set_trailing_sl`.
+        away from the current price (default 5%).
         """
         assert 0 < pct < 1, 'Need pct= as rate, i.e. 5% == 0.05'
-        pct_in_atr = np.mean(self.data.Close * pct / self.__atr)  # type: ignore
-        self.set_trailing_sl(pct_in_atr)
+        self.__trailing_pct = pct
 
     def next(self):
         super().next()
         # Can't use index=-1 because self.__atr is not an Indicator type
         index = len(self.data) - 1
+        close = self.data.Close[index]
+        distance = (close * self.__trailing_pct
+                    if self.__trailing_pct is not None else
+                    self.__atr[index] * self.__n_atr)
         for trade in self.trades:
             if trade.is_long:
-                trade.sl = max(trade.sl or -np.inf,
-                               self.data.Close[index] - self.__atr[index] * self.__n_atr)
+                trade.sl = max(trade.sl or -np.inf, close - distance)
             else:
-                trade.sl = min(trade.sl or np.inf,
-                               self.data.Close[index] + self.__atr[index] * self.__n_atr)
+                trade.sl = min(trade.sl or np.inf, close + distance)
 
 
 class FractionalBacktest(Backtest):
