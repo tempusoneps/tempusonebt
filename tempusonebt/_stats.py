@@ -125,10 +125,14 @@ def compute_stats(
         have_weekends = index.dayofweek.to_series().between(5, 6).mean() > 2 / 7 * .6
         annual_trading_days = (
             52 if freq_days == 7 else
-            12 if freq_days == 31 else
-            1 if freq_days == 365 else
+            12 if 28 <= freq_days <= 31 else
+            1 if 365 <= freq_days <= 366 else
             (365 if have_weekends else 252))
-        freq = {7: 'W', 31: 'ME', 365: 'YE'}.get(freq_days, 'D')
+        freq = (
+            'W' if freq_days == 7 else
+            'ME' if 28 <= freq_days <= 31 else
+            'YE' if 365 <= freq_days <= 366 else
+            'D')
         day_returns = equity_df['Equity'].resample(freq).last().dropna().pct_change()
         gmean_day_return = geometric_mean(day_returns)
 
