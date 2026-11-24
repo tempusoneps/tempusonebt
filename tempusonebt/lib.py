@@ -536,7 +536,8 @@ class FractionalBacktest(Backtest):
         for col in ('Open', 'High', 'Low', 'Close',):
             self.__data[col] = self.__data[col] * self._fractional_unit
         for col in ('Volume',):
-            self.__data[col] = self.__data[col] / self._fractional_unit
+            if col in self.__data:
+                self.__data[col] = self.__data[col] / self._fractional_unit
         with warnings.catch_warnings(record=True):
             warnings.filterwarnings(action='ignore', message='frac')
             super().__init__(data, *args, **kwargs)
@@ -550,9 +551,9 @@ class FractionalBacktest(Backtest):
         trades[['EntryPrice', 'ExitPrice', 'TP', 'SL']] /= self._fractional_unit
 
         indicators = result['_strategy']._indicators
-        for indicator in indicators:
+        for i, indicator in enumerate(indicators):
             if indicator._opts['overlay']:
-                indicator /= self._fractional_unit
+                indicators[i] = indicator / self._fractional_unit
 
         return result
 

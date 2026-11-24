@@ -969,6 +969,10 @@ class TestLib(TestCase):
         self.assertAlmostEqual(trade['EntryPrice'], 236.69)
         self.assertAlmostEqual(stats['_strategy']._indicators[0][trade['EntryBar']], 234.14)
 
+        no_vol = BTCUSD['2015':].drop(columns=['Volume'])
+        stats_no_vol = FractionalBacktest(no_vol, SmaCross, fractional_unit=1 / 1e6, cash=100).run(fast=2, slow=3)
+        self.assertEqual(stats_no_vol['# Trades'], 41)
+
     def test_MultiBacktest(self):
         import tempusonebt
         assert callable(getattr(tempusonebt, 'Pool', None)), tempusonebt.__dict__
