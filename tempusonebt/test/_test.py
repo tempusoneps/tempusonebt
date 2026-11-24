@@ -1225,3 +1225,21 @@ class TestRegressions(TestCase):
             trades = Backtest(df, S, cash=1000).run()._trades
         self.assertEqual(trades['ExitPrice'].iloc[0], 80)
         self.assertEqual(trades['SL'].iloc[0], 95)
+
+    def test_partial_close_fixed_commission_matches_equity(self):
+        class S(_S):
+            def next(self):
+                if len(self.data) == 2:
+                    self.buy(size=10)
+                elif len(self.data) == 3:
+                    self.trades[0].close(0.5)
+                elif len(self.data) == 4:
+                    self.trades[0].close(1.0)
+
+        arr = np.r_[100, 100, 100, 110, 120, 120]
+        df = pd.DataFrame({'Open': arr, 'High': arr, 'Low': arr, 'Close': arr})
+        with self.assertWarnsRegex(UserWarning, 'index is not datetime'):
+            stats = Backtest(df, S, cash=5000, commission=(10, 0.01)).run()
+        self.assertAlmostEqual(
+            stats['Equity Final [$]'] - 5000,
+            stats['_trades']['PnL'].sum())

@@ -555,6 +555,7 @@ class Trade:
         self.__tp_order: Optional[Order] = None
         self.__tag = tag
         self._commissions = 0
+        self._open_commission = 0
 
     def __repr__(self):
         return f'<Trade size={self.__size} time={self.__entry_bar}-{self.__exit_bar or ""} ' \
@@ -1051,6 +1052,10 @@ class _Broker:
         if not size_left:
             close_trade = trade
         else:
+            # Prorate entry commission between remaining and closed portions
+            closed_open_commission = trade._open_commission * (abs(size) / abs(trade.size))
+            trade._open_commission -= closed_open_commission
+
             # Reduce existing trade ...
             trade._replace(size=size_left)
             if trade._sl_order:
@@ -1060,6 +1065,7 @@ class _Broker:
 
             # ... by closing a reduced copy of it
             close_trade = trade._copy(size=-size, sl_order=None, tp_order=None)
+            close_trade._open_commission = closed_open_commission
             self.trades.append(close_trade)
 
         self._close_trade(close_trade, price, time_index)
@@ -1077,17 +1083,16 @@ class _Broker:
         commission = self._commission(trade.size, price)
         self._cash += trade.pl - commission
         # Save commissions on Trade instance for stats
-        trade_open_commission = self._commission(closed_trade.size, closed_trade.entry_price)
-        # applied here instead of on Trade open because size could have changed
-        # by way of _reduce_trade()
-        closed_trade._commissions = commission + trade_open_commission
+        closed_trade._commissions = commission + closed_trade._open_commission
 
     def _open_trade(self, price: float, size: int,
                     sl: Optional[float], tp: Optional[float], time_index: int, tag):
         trade = Trade(self, size, price, time_index, tag)
         self.trades.append(trade)
         # Apply broker commission at trade open
-        self._cash -= self._commission(size, price)
+        entry_commission = self._commission(size, price)
+        trade._open_commission = entry_commission
+        self._cash -= entry_commission
         # Create SL/TP (bracket) orders.
         if tp:
             trade.tp = tp
