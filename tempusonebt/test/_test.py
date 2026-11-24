@@ -1208,3 +1208,16 @@ class TestRegressions(TestCase):
             stats = Backtest(df, S, cash=1000, margin=0.2).run()
         self.assertEqual(stats['Equity Final [$]'], 0)
         self.assertEqual(stats['# Trades'], 3)
+
+    def test_sl_preserved_when_gapped_through(self):
+        class S(_S):
+            def next(self):
+                if len(self.data) == 2:
+                    self.buy(size=1, sl=95)
+
+        arr = np.r_[100, 100, 100, 80, 80]
+        df = pd.DataFrame({'Open': arr, 'High': arr, 'Low': arr, 'Close': arr})
+        with self.assertWarnsRegex(UserWarning, 'index is not datetime'):
+            trades = Backtest(df, S, cash=1000).run()._trades
+        self.assertEqual(trades['ExitPrice'].iloc[0], 80)
+        self.assertEqual(trades['SL'].iloc[0], 95)
