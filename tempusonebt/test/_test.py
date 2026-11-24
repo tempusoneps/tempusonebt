@@ -1177,3 +1177,30 @@ class TestRegressions(TestCase):
         trades = Backtest(SHORT_DATA, S).run()._trades
         self.assertEqual(trades['SL'].fillna(0).tolist(), [0, 99])
         self.assertEqual(trades['TP'].fillna(0).tolist(), [111, 0])
+
+    def test_exclusive_orders_cancels_all_pending(self):
+        class S(_S):
+            def next(self):
+                if len(self.data) == 2:
+                    self._broker.orders.extend([])
+                    self.buy(limit=1, size=1)
+                    self.buy(limit=2, size=1)
+                    self.buy(limit=3, size=1)
+                    assert len(self.orders) == 1
+
+        Backtest(SHORT_DATA, S, exclusive_orders=True).run()
+
+    def test_out_of_money_closes_all_trades(self):
+        class S(_S):
+            def next(self):
+                if len(self.data) == 2:
+                    self.buy(size=10)
+                    self.buy(size=10)
+                    self.buy(size=10)
+
+        arr = np.r_[100, 100, 100, 10, 10]
+        df = pd.DataFrame({'Open': arr, 'High': arr, 'Low': arr, 'Close': arr})
+        with self.assertWarnsRegex(UserWarning, 'index is not datetime'):
+            stats = Backtest(df, S, cash=1000, margin=0.2).run()
+        self.assertEqual(stats['Equity Final [$]'], 0)
+        self.assertEqual(stats['# Trades'], 3)

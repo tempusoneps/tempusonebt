@@ -800,7 +800,7 @@ class _Broker:
             # If exclusive orders (each new order auto-closes previous orders/position),
             # cancel all non-contingent orders and close all open trades beforehand
             if self._exclusive_orders:
-                for o in self.orders:
+                for o in list(self.orders):
                     if not o.is_contingent:
                         o.cancel()
                 for t in self.trades:
@@ -844,7 +844,7 @@ class _Broker:
         # If equity is negative, set all to 0 and stop the simulation
         if equity <= 0:
             assert self.margin_available <= 0
-            for trade in self.trades:
+            for trade in list(self.trades):
                 self._close_trade(trade, self._data.Close[-1], i)
             self._cash = 0
             self._equity[i:] = 0
