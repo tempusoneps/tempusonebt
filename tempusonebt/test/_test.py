@@ -255,7 +255,7 @@ class TestBacktest(TestCase):
 
         stats = Backtest(SHORT_DATA, S, cash=CASH, commission=(100, COMMISSION)).run()
         self.assertEqual(stats['_equity_curve']['Equity'].iloc[2:4].round(2).tolist(),
-                         [9784.50, 9718.69])
+                         [9683.74, 9647.77])
 
         commission_func = lambda size, price: size * price * COMMISSION  # noqa: E731
         stats = Backtest(SHORT_DATA, S, cash=CASH, commission=commission_func).run()

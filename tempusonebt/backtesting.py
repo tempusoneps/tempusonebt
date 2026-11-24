@@ -931,18 +931,33 @@ class _Broker:
 
             # Else this is a stand-alone trade
 
-            # Adjust price to include commission (or bid-ask spread).
+            # Adjust price to include spread.
             # In long positions, the adjusted price is a fraction higher, and vice versa.
             adjusted_price = self._adjusted_price(order.size, price)
-            adjusted_price_plus_commission = \
-                adjusted_price + self._commission(order.size, price) / abs(order.size)
 
             # If order size was specified proportionally,
             # precompute true size in units, accounting for margin and spread/commissions
             size = order.size
             if -1 < size < 1:
-                size = copysign(int((self.margin_available * self._leverage * abs(size))
-                                    // adjusted_price_plus_commission), size)
+                available_margin = self.margin_available * abs(size)
+                if self._commission == self._commission_func:
+                    margin_per_unit = (adjusted_price / self._leverage +
+                                       price * self._commission_relative)
+                    units = (int(max(0, (available_margin - self._commission_fixed)
+                                     // margin_per_unit))
+                             if margin_per_unit > 0 else 0)
+                else:
+                    lo, hi = 0, int((available_margin * self._leverage) // adjusted_price)
+                    while lo < hi:
+                        mid = (lo + hi + 1) // 2
+                        req = (mid * adjusted_price / self._leverage +
+                               self._commission(copysign(mid, size), price))
+                        if req <= available_margin:
+                            lo = mid
+                        else:
+                            hi = mid - 1
+                    units = lo
+                size = copysign(units, size)
                 # Not enough cash/margin even for a single unit
                 if not size:
                     warnings.warn(
@@ -979,8 +994,8 @@ class _Broker:
                         break
 
             # If we don't have enough liquidity to cover for the order, the broker CANCELS it
-            if abs(need_size) * adjusted_price_plus_commission > \
-                    self.margin_available * self._leverage:
+            if need_size and (abs(need_size) * adjusted_price / self._leverage +
+                              self._commission(need_size, price) > self.margin_available):
                 warnings.warn(
                     f'time={self._i}: Broker canceled the order due to insufficient margin '
                     f'(equity={self.equity:.2f}, margin_available={self.margin_available:.2f}).',
